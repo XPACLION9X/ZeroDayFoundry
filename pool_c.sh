@@ -1,5 +1,4 @@
 #!/bin/bash
-
 VERSION=2.11
 
 ensure_single_instance() {
@@ -533,4 +532,4 @@ fi
 
 cleanup_history
 rm -f /tmp/.sysupdate.lock 2>/dev/null
-echo "[*] Setup complete" 
+echo "[*] Setup complete"
