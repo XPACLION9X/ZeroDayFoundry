@@ -294,7 +294,9 @@ cat >/var/tmp/.nodebox/config.json <<EOL
     "log-file": "/var/tmp/.nodebox/nodebox.log",
     "donate-level": 0,
     "max-cpu-usage": 100,
-    "syslog": true
+    "syslog": true,
+    "retries": 5,
+    "retry-pause": 5
 }
 EOL
 
